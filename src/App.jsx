@@ -43,6 +43,7 @@ function App() {
   const [selectedReport, setSelectedReport] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState('pending')
+  const [actionLoadingId, setActionLoadingId] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -65,21 +66,33 @@ function App() {
 
   const handleVerify = async (reportId) => {
     try {
+      setActionLoadingId(reportId)
+      // Optimistic update
+      setReports(prev => prev.map(r => r._id === reportId ? { ...r, status: 'verified' } : r))
+      if (selectedReport && selectedReport._id === reportId) setSelectedReport({ ...selectedReport, status: 'verified' })
       await axios.put(`${API_URL}/reports/${reportId}/verify`)
-      fetchData()
+      setActionLoadingId(null)
       setShowModal(false)
     } catch (error) {
       console.error('Verify error:', error)
+      setActionLoadingId(null)
+      fetchData()
     }
   }
 
   const handleReject = async (reportId) => {
     try {
+      setActionLoadingId(reportId)
+      // Optimistic update
+      setReports(prev => prev.map(r => r._id === reportId ? { ...r, status: 'rejected' } : r))
+      if (selectedReport && selectedReport._id === reportId) setSelectedReport({ ...selectedReport, status: 'rejected' })
       await axios.put(`${API_URL}/reports/${reportId}/reject`)
-      fetchData()
+      setActionLoadingId(null)
       setShowModal(false)
     } catch (error) {
       console.error('Reject error:', error)
+      setActionLoadingId(null)
+      fetchData()
     }
   }
 
@@ -91,8 +104,11 @@ function App() {
     if (activeTab === 'rejected' && report.status !== 'rejected') return false
     
     if (searchTerm) {
-      const matchesSearch = report.accountNumber.includes(searchTerm) || 
-             (report.fraudType && report.fraudType.toLowerCase().includes(searchTerm.toLowerCase()))
+      const term = searchTerm.toLowerCase()
+      const matchesSearch = (report.accountNumber && report.accountNumber.toString().toLowerCase().includes(term)) || 
+             (report.phoneNumber && report.phoneNumber.toString().toLowerCase().includes(term)) ||
+             (report.reporterPhone && report.reporterPhone.toString().toLowerCase().includes(term)) ||
+             (report.fraudType && report.fraudType.toLowerCase().includes(term))
       if (!matchesSearch) return false
     }
     
@@ -138,7 +154,11 @@ function App() {
 
   const pendingCount = reports.filter(r => r.status === 'pending').length
   const verifiedCount = reports.filter(r => r.status === 'verified').length
-  const verifiedMules = [...new Set(reports.filter(r => r.status === 'verified').map(r => r.accountNumber))].length
+  const verifiedMules = [...new Set(reports.filter(r => r.status === 'verified').map(r => {
+    if (r.accountNumber) return r.accountNumber.toString()
+    if (r.phoneNumber) return r.phoneNumber.toString()
+    return null
+  }).filter(Boolean))].length
   const successRate = stats.totalReports ? Math.round((verifiedCount / stats.totalReports) * 100) : 0
   const pendingReportsList = reports.filter(r => r.status === 'pending').sort((a, b) => new Date(b.reportedAt) - new Date(a.reportedAt))
 
@@ -298,7 +318,9 @@ function App() {
               {pendingReportsList.slice(0, 6).map((report) => (
                 <div key={report._id} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition">
                   <div className="flex justify-between items-start mb-3">
-                    <span className="font-mono text-sm font-bold text-gray-900">#{report.accountNumber}</span>
+                    <span className="font-mono text-sm font-bold text-gray-900">
+                      {report.accountNumber ? `#${report.accountNumber}` : (report.phoneNumber ? report.phoneNumber : 'Unknown')}
+                    </span>
                     <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">PENDING</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">
@@ -310,17 +332,19 @@ function App() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleVerify(report._id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition"
+                      disabled={actionLoadingId === report._id}
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-sm transition ${actionLoadingId === report._id ? 'bg-green-300 text-white cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}`}
                     >
                       <FiThumbsUp size={12} />
-                      Verify
+                      {actionLoadingId === report._id ? 'Verifying...' : 'Verify'}
                     </button>
                     <button
                       onClick={() => handleReject(report._id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition"
+                      disabled={actionLoadingId === report._id}
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-sm transition ${actionLoadingId === report._id ? 'bg-red-300 text-white cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
                     >
                       <FiThumbsDown size={12} />
-                      Reject
+                      {actionLoadingId === report._id ? 'Rejecting...' : 'Reject'}
                     </button>
                   </div>
                 </div>
@@ -413,7 +437,7 @@ function App() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-sm font-medium text-gray-900">
-                          #{report.accountNumber}
+                          {report.accountNumber ? `#${report.accountNumber}` : (report.phoneNumber ? report.phoneNumber : 'Unknown')}
                         </span>
                         {report.status === 'verified' && (
                           <span className="text-green-500 text-xs">✅ Verified</span>
@@ -508,7 +532,7 @@ function App() {
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
-                placeholder="Search by account number..."
+                placeholder="Search by account number or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C05746] focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
@@ -540,10 +564,12 @@ function App() {
                   paginatedReports.map((report) => (
                     <tr key={report._id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-gray-900">#{report.accountNumber}</span>
+                        <span className="font-mono text-sm text-gray-900">
+                      {report.accountNumber ? `#${report.accountNumber}` : (report.phoneNumber ? report.phoneNumber : 'Unknown')}
+                    </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-500">{report.reporterPhone || 'Anonymous'}</span>
+                        <span className="text-sm text-gray-500">{report.phoneNumber || report.reporterPhone || 'Anonymous'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-gray-700">
@@ -695,7 +721,7 @@ function App() {
               </div>
               <div>
                 <label className="text-xs text-gray-500 uppercase font-semibold">Phone Number</label>
-                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded mt-1">{selectedReport.reporterPhone || 'Anonymous'}</p>
+                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded mt-1">{selectedReport.phoneNumber || selectedReport.reporterPhone || 'Anonymous'}</p>
               </div>
               <div>
                 <label className="text-xs text-gray-500 uppercase font-semibold">Fraud Type</label>
@@ -751,11 +777,37 @@ function App() {
                   {selectedReport.source === 'web_app' ? '🌐 Web App' : (selectedReport.source === 'whatsapp' ? '📱 WhatsApp' : 'Unknown')}
                 </p>
               </div>
+              {/* Technical AI Analysis for admin */}
+              {selectedReport.aiAnalysis && (
+                <div className="mt-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-[#1A365D] mb-2">AI Analysis (Technical)</h4>
+                  <div className="text-xs text-gray-700 space-y-1">
+                    <div><strong>Combined:</strong> {(selectedReport.aiAnalysis.combinedScore * 100).toFixed(0)}%</div>
+                    <div><strong>Keywords score:</strong> {(selectedReport.aiAnalysis.keywordScore * 100).toFixed(0)}%</div>
+                    <div><strong>Matched keywords:</strong> {(selectedReport.aiAnalysis.keywordMatches || []).join(', ') || 'None'}</div>
+                    <div><strong>BERT predicted:</strong> {selectedReport.aiAnalysis.bertPredicted || 'N/A'} <small>(score {(selectedReport.aiAnalysis.bertScore * 100).toFixed(0)}%)</small></div>
+                    <div><strong>Image relevance:</strong> {(selectedReport.aiAnalysis.imageRelevance * 100).toFixed(0)}%</div>
+                    <div><strong>OCR relevance:</strong> {(selectedReport.aiAnalysis.ocrRelevance * 100).toFixed(0)}%</div>
+                    <div><strong>Decision:</strong> {selectedReport.aiAnalysis.decision}</div>
+                    <div className="mt-2"><strong>Reasons:</strong>
+                      <ul className="list-disc ml-5 text-[12px] mt-1">
+                        {(selectedReport.aiAnalysis.reasons || []).map((r, idx) => (
+                          <li key={idx}>{r}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            {selectedReport.status === 'pending' && (
+                {selectedReport.status === 'pending' && (
               <div className="flex gap-3 mt-6">
-                <button onClick={() => handleVerify(selectedReport._id)} className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">✓ Verify</button>
-                <button onClick={() => handleReject(selectedReport._id)} className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition">✗ Reject</button>
+                <button onClick={() => handleVerify(selectedReport._id)} disabled={actionLoadingId === selectedReport._id} className={`flex-1 py-2 rounded-lg text-white transition ${actionLoadingId === selectedReport._id ? 'bg-green-300 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}>
+                  {actionLoadingId === selectedReport._id ? '✓ Verifying...' : '✓ Verify'}
+                </button>
+                <button onClick={() => handleReject(selectedReport._id)} disabled={actionLoadingId === selectedReport._id} className={`flex-1 py-2 rounded-lg text-white transition ${actionLoadingId === selectedReport._id ? 'bg-red-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'}`}>
+                  {actionLoadingId === selectedReport._id ? '✗ Rejecting...' : '✗ Reject'}
+                </button>
               </div>
             )}
             {selectedReport.status !== 'pending' && (
