@@ -1,4 +1,4 @@
-import LogoutPage from "./LogoutPage"
+﻿﻿import LogoutPage from "./LogoutPage"
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { 
@@ -24,10 +24,11 @@ import {
   Tooltip, 
   ResponsiveContainer
 } from 'recharts'
+import ScamsSection from './ScamsSection'
 
 const API_URL = 'http://localhost:3000/api'
 
-// ─── Admin Notes Modal ────────────────────────────────────────────────────────
+// â”€â”€â”€ Admin Notes Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AdminNotesModal({ action, reportId, onConfirm, onClose }) {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -43,7 +44,7 @@ function AdminNotesModal({ action, reportId, onConfirm, onClose }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
         <h3 className={`text-base font-semibold mb-1 ${isVerify ? 'text-green-700' : 'text-red-700'}`}>
-          {isVerify ? '✅ Verify Report' : '❌ Reject Report'}
+          {isVerify ? 'âœ… Verify Report' : 'âŒ Reject Report'}
         </h3>
         <p className="text-sm text-gray-500 mb-4">
           {isVerify
@@ -77,109 +78,146 @@ function AdminNotesModal({ action, reportId, onConfirm, onClose }) {
   )
 }
 
-// ─── Blog View Modal ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Blog View Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Blog View Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BlogViewModal({ report, onClose, onAction }) {
   const [blog, setBlog] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [fetchError, setFetchError] = useState('')
+  const [notesModal, setNotesModal] = useState(null)
 
   useEffect(() => {
-    axios.get(`${API_URL}/admin/blogs/${report.blogId}`)
+    const blogId = report.blogId?.$oid || report.blogId?.toString() || report.blogId
+    axios.get(`${API_URL}/admin/blogs/${blogId}`)
       .then(res => setBlog(res.data.data))
-      .catch(() => setError('Failed to load blog content.'))
+      .catch(() => setFetchError('Could not load blog content.'))
       .finally(() => setLoading(false))
   }, [report.blogId])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <h3 className="text-base font-semibold text-[#1A365D] flex items-center gap-2">
-            <FiFileText className="text-[#C05746]" /> Blog Content Review
+            <FiFlag className="text-[#C05746]" /> Review Blog Report
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">âœ•</button>
         </div>
 
-        {/* Report reason */}
-        <div className="px-6 pt-4 pb-3 bg-orange-50 border-b border-orange-100">
-          <p className="text-xs font-semibold text-orange-700 uppercase mb-1">Report Reason</p>
-          <span className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded-full font-medium">{report.category}</span>
-          {report.comments && <p className="text-sm text-orange-700 mt-2 italic">"{report.comments}"</p>}
-          <p className="text-xs text-orange-500 mt-1">Reported by {report.reporterEmail}</p>
-        </div>
+        <div className="p-6 space-y-6">
 
-        <div className="px-6 py-5">
-          {loading && <div className="py-12 text-center text-gray-400 text-sm">Loading blog content...</div>}
-          {error && <div className="py-12 text-center text-red-400 text-sm">{error}</div>}
-          {blog && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Title</p>
-                <p className="text-base font-semibold text-gray-900">{blog.title}</p>
+          {/* Report reason */}
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Report Reason</p>
+            <p className="text-sm font-medium text-gray-900">{report.category}</p>
+            {report.comments && (
+              <p className="text-sm text-gray-600 italic">"{report.comments}"</p>
+            )}
+            <p className="text-xs text-gray-500">
+              Reported by <span className="font-medium">{report.reporterEmail}</span>{' Â· '}
+              {new Date(report.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+
+          {/* Blog content */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Blog Content</p>
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C05746]"></div>
               </div>
-              <div className="flex gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Author</p>
-                  <p className="text-gray-700">{blog.authorName || blog.authorEmail || 'Unknown'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Fraud Type</p>
-                  <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">{blog.fraudType}</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Content</p>
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
-                  {blog.content}
-                </div>
-              </div>
-              {blog.screenshots?.length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500 uppercase font-semibold mb-2 flex items-center gap-1">
-                    <FiImage size={11} /> Screenshots ({blog.screenshots.length})
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {blog.screenshots.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                        className="block border border-gray-200 rounded-lg overflow-hidden hover:opacity-80 transition">
-                        <img src={url} alt={`Screenshot ${i + 1}`} className="w-full h-24 object-cover" />
-                      </a>
-                    ))}
+            )}
+            {fetchError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-600">{fetchError}</div>
+            )}
+            {blog && (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-5 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">{blog.fraudType}</span>
+                    {blog.isFlagged && (
+                      <span className="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">ðŸš© Flagged</span>
+                    )}
                   </div>
+                  <h4 className="text-base font-bold text-gray-900">{blog.title}</h4>
+                  <p className="text-xs text-gray-500 mt-1">
+                    By <span className="font-medium">{blog.authorName || 'Anonymous'}</span>{' Â· '}
+                    {new Date(blog.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {' Â· '}ðŸ‘ {blog.upvotes || 0} Â· ðŸ’¬ {blog.commentCount || 0}
+                  </p>
                 </div>
-              )}
+                <div className="px-5 py-4">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{blog.content}</p>
+                </div>
+                {blog.screenshots?.length > 0 && (
+                  <div className="px-5 pb-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Screenshots</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {blog.screenshots.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                          className="block border border-gray-200 rounded-lg overflow-hidden hover:opacity-80 transition">
+                          <img src={url} alt={`Screenshot ${i + 1}`} className="w-full h-24 object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          {report.status === 'pending' && (
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setNotesModal({ action: 'verify', reportId: report._id })}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition"
+              >
+                <FiThumbsUp size={14} /> Verify Report
+              </button>
+              <button
+                onClick={() => setNotesModal({ action: 'reject', reportId: report._id })}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition"
+              >
+                <FiThumbsDown size={14} /> Reject Report
+              </button>
+            </div>
+          )}
+          {report.status !== 'pending' && (
+            <div className={`rounded-lg px-4 py-3 text-sm font-medium ${
+              report.status === 'verified' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}>
+              {report.status === 'verified' ? 'âœ… This report was verified.' : 'âŒ This report was rejected.'}
+              {report.adminNotes && <span className="ml-2 font-normal">Notes: {report.adminNotes}</span>}
             </div>
           )}
         </div>
-
-        {report.status === 'pending' && (
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex gap-3">
-            <button
-              onClick={() => onAction('verify')}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition"
-            >
-              <FiThumbsUp size={13} /> Verify Report
-            </button>
-            <button
-              onClick={() => onAction('reject')}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition"
-            >
-              <FiThumbsDown size={13} /> Reject Report
-            </button>
-          </div>
-        )}
       </div>
+
+      {notesModal && (
+        <AdminNotesModal
+          action={notesModal.action}
+          reportId={notesModal.reportId}
+          onConfirm={async (id, notes) => {
+            await onAction(id, notes, notesModal.action)
+            setNotesModal(null)
+            onClose()
+          }}
+          onClose={() => setNotesModal(null)}
+        />
+      )}
     </div>
   )
 }
 
-// ─── Blog Reports Section ─────────────────────────────────────────────────────
+// â”€â”€â”€ Blog Reports Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BlogReportsSection() {
   const [blogReports, setBlogReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('pending')
-  const [notesModal, setNotesModal] = useState(null) // { action, reportId }
-  const [viewReport, setViewReport] = useState(null) // report to view in BlogViewModal
+  const [viewReport, setViewReport] = useState(null)
 
   const fetchBlogReports = useCallback(async () => {
     setLoading(true)
@@ -196,23 +234,10 @@ function BlogReportsSection() {
   useEffect(() => { fetchBlogReports() }, [fetchBlogReports])
 
   const handleAction = async (reportId, adminNotes, action) => {
-    try {
-      await axios.put(`${API_URL}/admin/blog-reports/${reportId}/${action}`, { adminNotes })
-      setBlogReports(prev => prev.map(r =>
-        r._id === reportId ? { ...r, status: action === 'verify' ? 'verified' : 'rejected' } : r
-      ))
-    } catch (err) {
-      console.error(`Blog report ${action} error:`, err)
-    } finally {
-      setNotesModal(null)
-    }
-  }
-
-  const handleViewAction = (action) => {
-    if (viewReport) {
-      setNotesModal({ action, reportId: viewReport._id })
-      setViewReport(null)
-    }
+    await axios.put(`${API_URL}/admin/blog-reports/${reportId}/${action}`, { adminNotes })
+    setBlogReports(prev => prev.map(r =>
+      r._id === reportId ? { ...r, status: action === 'verify' ? 'verified' : 'rejected', adminNotes } : r
+    ))
   }
 
   const filtered = blogReports.filter(r => r.status === activeTab)
@@ -250,7 +275,6 @@ function BlogReportsSection() {
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-gray-200 flex">
         {tabBtn('pending', 'Pending', pendingCount)}
         {tabBtn('verified', 'Verified', 0)}
@@ -267,32 +291,18 @@ function BlogReportsSection() {
             <thead className="bg-gray-50">
               <tr className="border-b border-gray-200">
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Blog Title</th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">View</th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reporter</th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                 <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comments</th>
-                {activeTab === 'pending' && (
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                )}
-                {activeTab !== 'pending' && (
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin Notes</th>
-                )}
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(report => (
                 <tr key={report._id} className="hover:bg-gray-50 transition">
                   <td className="px-5 py-4">
-                    <span className="text-sm font-medium text-gray-900 line-clamp-2 max-w-[180px] block">{report.blogTitle}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => setViewReport(report)}
-                      className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium hover:bg-blue-100 transition"
-                    >
-                      <FiEye size={11} /> View Blog
-                    </button>
+                    <span className="text-sm font-medium text-gray-900 max-w-[160px] block truncate">{report.blogTitle}</span>
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs px-2 py-1 bg-orange-50 text-orange-700 rounded-full font-medium whitespace-nowrap">{report.category}</span>
@@ -306,31 +316,25 @@ function BlogReportsSection() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="text-sm text-gray-500 max-w-[160px] block truncate">{report.comments || <span className="text-gray-300 italic">—</span>}</span>
+                    <span className="text-sm text-gray-500 max-w-[140px] block truncate">{report.comments || 'â€”'}</span>
                   </td>
-                  {activeTab === 'pending' && (
-                    <td className="px-5 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setNotesModal({ action: 'verify', reportId: report._id })}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition"
-                        >
-                          <FiThumbsUp size={11} /> Verify
-                        </button>
-                        <button
-                          onClick={() => setNotesModal({ action: 'reject', reportId: report._id })}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition"
-                        >
-                          <FiThumbsDown size={11} /> Reject
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                  {activeTab !== 'pending' && (
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-gray-500">{report.adminNotes || <span className="text-gray-300 italic">—</span>}</span>
-                    </td>
-                  )}
+                  <td className="px-5 py-4">
+                    <div className="flex gap-2 items-center">
+                      <button
+                        onClick={() => setViewReport(report)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200 transition"
+                      >
+                        <FiEye size={11} /> View Blog
+                      </button>
+                      {activeTab !== 'pending' && (
+                        <span className={`text-xs font-medium ${
+                          report.status === 'verified' ? 'text-green-600' : 'text-red-500'
+                        }`}>
+                          {report.status === 'verified' ? 'âœ… Verified' : 'âŒ Rejected'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -342,22 +346,12 @@ function BlogReportsSection() {
         <BlogViewModal
           report={viewReport}
           onClose={() => setViewReport(null)}
-          onAction={handleViewAction}
-        />
-      )}
-
-      {notesModal && (
-        <AdminNotesModal
-          action={notesModal.action}
-          reportId={notesModal.reportId}
-          onConfirm={(id, notes) => handleAction(id, notes, notesModal.action)}
-          onClose={() => setNotesModal(null)}
+          onAction={handleAction}
         />
       )}
     </div>
   )
 }
-
 function App() {
   const [reports, setReports] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -604,7 +598,7 @@ function App() {
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wide">Verified mules</p>
                 <p className="text-2xl font-bold text-red-600 mt-1">{verifiedMules}</p>
-                <p className="text-xs text-green-600 mt-1">✓ Confirmed fraud</p>
+                <p className="text-xs text-green-600 mt-1">âœ“ Confirmed fraud</p>
               </div>
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                 <FiAlertTriangle className="text-red-500 text-sm" />
@@ -772,20 +766,20 @@ function App() {
                           {report.accountNumber ? `#${report.accountNumber}` : (report.phoneNumber ? report.phoneNumber : 'Unknown')}
                         </span>
                         {report.status === 'verified' && (
-                          <span className="text-green-500 text-xs">✅ Verified</span>
+                          <span className="text-green-500 text-xs">âœ… Verified</span>
                         )}
                         {report.status === 'pending' && (
-                          <span className="text-yellow-500 text-xs">⏳ Pending</span>
+                          <span className="text-yellow-500 text-xs">â³ Pending</span>
                         )}
                         {report.status === 'rejected' && (
-                          <span className="text-red-500 text-xs">❌ Rejected</span>
+                          <span className="text-red-500 text-xs">âŒ Rejected</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">
                           {report.fraudType && report.fraudType !== 'Not specified' ? report.fraudType : 'No reason provided'}
                         </span>
-                        <span className="text-xs text-gray-300">·</span>
+                        <span className="text-xs text-gray-300">Â·</span>
                         <span className="text-xs text-gray-500">
                           {new Date(report.reportedAt).toLocaleDateString()}
                         </span>
@@ -1036,6 +1030,10 @@ function App() {
             </div>
           </div>
         </div>
+        {/* Scams Section */}
+        <div className="mt-8">
+          <ScamsSection />
+        </div>
         {/* Blog Reports Section */}
         <div className="mt-8">
           <BlogReportsSection />
@@ -1048,7 +1046,7 @@ function App() {
           <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-[#1A365D]">Report Details</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">âœ•</button>
             </div>
             <div className="space-y-4">
               <div>
@@ -1110,7 +1108,7 @@ function App() {
               <div>
                 <label className="text-xs text-gray-500 uppercase font-semibold">Source</label>
                 <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded mt-1">
-                  {selectedReport.source === 'web_app' ? '🌐 Web App' : (selectedReport.source === 'whatsapp' ? '📱 WhatsApp' : 'Unknown')}
+                  {selectedReport.source === 'web_app' ? 'ðŸŒ Web App' : (selectedReport.source === 'whatsapp' ? 'ðŸ“± WhatsApp' : 'Unknown')}
                 </p>
               </div>
               {/* Technical AI Analysis for admin */}
@@ -1139,10 +1137,10 @@ function App() {
                 {selectedReport.status === 'pending' && (
               <div className="flex gap-3 mt-6">
                 <button onClick={() => handleVerify(selectedReport._id)} disabled={actionLoadingId === selectedReport._id} className={`flex-1 py-2 rounded-lg text-white transition ${actionLoadingId === selectedReport._id ? 'bg-green-300 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}>
-                  {actionLoadingId === selectedReport._id ? '✓ Verifying...' : '✓ Verify'}
+                  {actionLoadingId === selectedReport._id ? 'âœ“ Verifying...' : 'âœ“ Verify'}
                 </button>
                 <button onClick={() => handleReject(selectedReport._id)} disabled={actionLoadingId === selectedReport._id} className={`flex-1 py-2 rounded-lg text-white transition ${actionLoadingId === selectedReport._id ? 'bg-red-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'}`}>
-                  {actionLoadingId === selectedReport._id ? '✗ Rejecting...' : '✗ Reject'}
+                  {actionLoadingId === selectedReport._id ? 'âœ— Rejecting...' : 'âœ— Reject'}
                 </button>
               </div>
             )}
@@ -1157,3 +1155,4 @@ function App() {
 }
 
 export default App
+
